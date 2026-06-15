@@ -1,0 +1,178 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "审批配置校验";
+}
+
+<div class="page-header">
+    <h2>审批配置数据校验（仅限第二阶段审批模板）</h2>
+    <p class="text-muted">上传 UTF-8 编码的 CSV 文件，系统将自动识别条件列与审批人列，并按条件组进行规则校验。</p>
+</div>
+
+@if (!ViewData.ModelState.IsValid)
+{
+    <div class="alert alert-danger">
+        @foreach (var err in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+        {
+            <p>@err.ErrorMessage</p>
+        }
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="panel panel-primary">
+            <div class="panel-heading">
+                <strong><span class="glyphicon glyphicon-cloud-upload"></span> 上传 CSV 文件进行校验</strong>
+            </div>
+            <div class="panel-body">
+                <form method="post" enctype="multipart/form-data" class="form-inline">
+                    @Html.AntiForgeryToken()
+                    <div class="form-group">
+                        <label for="csvFile" class="sr-only">选择 CSV 文件</label>
+                        <div class="input-group">
+                            <span class="input-group-btn">
+                                <button type="button" class="btn btn-default" onclick="document.getElementById('csvFile').click()">
+                                    <span class="glyphicon glyphicon-folder-open"></span> 选择文件
+                                </button>
+                            </span>
+                            <input type="text" class="form-control" id="fileName" placeholder="未选择文件..." readonly />
+                        </div>
+                        <input type="file" id="csvFile" name="csvFile" accept=".csv" style="display:none;"
+                               onchange="document.getElementById('fileName').value = this.files[0] ? this.files[0].name : ''" />
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <span class="glyphicon glyphicon-ok"></span> 上传并校验
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="panel panel-info">
+            <div class="panel-heading">
+                <strong><span class="glyphicon glyphicon-th-list"></span> 快捷操作</strong>
+            </div>
+            <div class="panel-body">
+                <a href="https://oa365.sinarmas-agri.com/admin/matrices" target="_blank"
+                   class="btn btn-info btn-block" style="margin-bottom:8px;">
+                    <span class="glyphicon glyphicon-download-alt"></span> 下载其他审批矩阵模板
+                </a>
+                <form method="post" action="@Url.Page("/Index", "Clear")">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-default btn-block">
+                        <span class="glyphicon glyphicon-refresh"></span> 清空当前校验结果
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (Model.HasResult && Model.ValidationResult != null)
+{
+    var vr = Model.ValidationResult;
+    int anomalyCount = vr.Rows.Count(r => r.IsAnomaly);
+    int normalCount = vr.Rows.Count - anomalyCount;
+
+    <div class="row" style="margin-bottom:15px;">
+        <div class="col-md-8">
+            <div class="alert @(anomalyCount > 0 ? "alert-warning" : "alert-success")">
+                <strong>校验完成：</strong>共 @vr.Rows.Count 行数据，
+                <span style="color:@(anomalyCount > 0 ? "#a94442" : "#3c763d");">@anomalyCount 行异常</span>，
+                <span>@normalCount 行正常</span>
+            </div>
+        </div>
+        <div class="col-md-4 text-right">
+            <a href="@Url.Page("/Index", "Download")" class="btn btn-success">
+                <span class="glyphicon glyphicon-download-alt"></span> 下载校验结果 CSV
+            </a>
+        </div>
+    </div>
+
+    @if (anomalyCount == 0)
+    {
+        <div class="alert alert-success text-center">
+            <strong>全部通过，未发现异常数据</strong>
+        </div>
+    }
+    else
+    {
+        <div class="panel panel-danger">
+            <div class="panel-heading">
+                <strong>异常条件组：共 @Model.AnomalyGroups.Count 组</strong>
+            </div>
+            <div class="panel-body" style="padding:0;">
+                @foreach (var group in Model.AnomalyGroups)
+                {
+                    var collapseId = "g_" + group.ConditionDisplay.GetHashCode().ToString("x");
+                    <div class="panel panel-default" style="margin:10px;">
+                        <div class="panel-heading" role="tab">
+                            <div class="row">
+                                <div class="col-sm-9">
+                                    <strong>条件：</strong>@group.ConditionDisplay
+                                </div>
+                                <div class="col-sm-3 text-right">
+                                    <span class="badge">@group.AnomalyRowCount 行</span>
+                                    <a data-toggle="collapse" href="#@collapseId" class="btn btn-xs btn-link">
+                                        展开/收起
+                                    </a>
+                                </div>
+                            </div>
+                            <div style="margin-top:6px;">
+                                @foreach (var reason in group.AnomalyReasons)
+                                {
+                                    <span class="label label-danger" style="margin-right:4px;">@reason</span>
+                                }
+                            </div>
+                        </div>
+                        <div id="@collapseId" class="panel-collapse collapse">
+                            <div class="panel-body">
+                                <table class="table table-condensed table-bordered" style="margin-bottom:0;">
+                                    <thead>
+                                        <tr class="active">
+                                            <th>CSV行号</th>
+                                            <th>异常原因</th>
+                                            @foreach (var h in vr.Headers)
+                                            {
+                                                <th>@h</th>
+                                            }
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var rowNum in group.RowNumbers)
+                                        {
+                                            var row = vr.Rows.First(r => (r.RowIndex + 2).ToString() == rowNum);
+                                            <tr>
+                                                <td>@rowNum</td>
+                                                <td>
+                                                    @string.Join("；", row.Reasons)
+                                                </td>
+                                                @foreach (var cell in row.Cells)
+                                                {
+                                                    <td>@cell</td>
+                                                }
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+}
+else if (!Model.HasResult)
+{
+    <div class="well">
+        <h4>使用说明</h4>
+        <ol>
+            <li>准备 UTF-8 编码的 CSV 文件，表头需包含「条件列」和「role / role1 / role2 ... role20」审批人列</li>
+            <li>系统自动识别：第一个 role 系列列左侧的所有列为条件列</li>
+            <li>校验规则：同一条件组内检查审批人数一致性、人员一致性、配置重复</li>
+            <li>异常行将以<span class="text-danger">红色高亮</span>显示，并可下载带「存在异常值」标识列的 CSV 文件</li>
+        </ol>
+    </div>
+}
