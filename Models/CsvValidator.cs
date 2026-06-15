@@ -65,18 +65,32 @@ public static class CsvValidator
     }
 
     /// <summary>
-    /// 主校验入口：按条件组分组后，对每组执行 3 条规则
+    /// 主校验入口（自动识别审批人列），按条件组分组后，对每组执行 3 条规则
     /// </summary>
     public static ValidationResult Validate(List<string[]> allRows)
+    {
+        if (allRows.Count < 2)
+            return new ValidationResult();
+        var (_, roleCols) = DetectColumns(allRows[0]);
+        return Validate(allRows, roleCols);
+    }
+
+    /// <summary>
+    /// 主校验入口（用户指定审批人列）
+    /// </summary>
+    public static ValidationResult Validate(List<string[]> allRows, List<int> roleCols)
     {
         if (allRows.Count < 2)
             return new ValidationResult();
 
         var headers = allRows[0];
         var dataRows = allRows.Skip(1).ToList();
-        var (rawConditionCols, roleCols) = DetectColumns(headers);
 
-        // 排除 id 列和所有值唯一的列，不作为条件列参与分组
+        // 条件列 = 第一个审批人列左侧所有列，排除 id 和全唯一列
+        int firstRole = roleCols.Count > 0 ? roleCols.Min() : headers.Length;
+        var rawConditionCols = new List<int>();
+        for (int i = 0; i < firstRole; i++)
+            rawConditionCols.Add(i);
         var conditionCols = ExcludeIdAndUniqueColumns(rawConditionCols, headers, dataRows);
 
         var result = new ValidationResult
@@ -99,7 +113,6 @@ public static class CsvValidator
 
         if (roleCols.Count == 0)
         {
-            // 没有审批人列，全部正常
             result.Rows = rowResults.ToList();
             return result;
         }
@@ -119,15 +132,10 @@ public static class CsvValidator
         {
             var indices = kv.Value;
             if (indices.Count < 2)
-                continue; // 单行组无需校验
+                continue;
 
-            // 规则1：审批人数不一致
             CheckRule1(rowResults, indices, roleCols);
-
-            // 规则2：审批人员内容不一致
             CheckRule2(rowResults, indices, roleCols);
-
-            // 规则3：配置完全重复
             CheckRule3(rowResults, indices, roleCols);
         }
 

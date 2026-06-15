@@ -19,3 +19,8 @@ Desktop.ini
 # Test data
 test/
 QuickTest/
+QuickTest.csx
+test_data.csv
+
+# Dev config
+appsettings.Development.json

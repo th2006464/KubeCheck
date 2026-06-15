@@ -5,7 +5,7 @@
 }
 
 <div class="page-header">
-    <h2>审批配置数据校验（仅限第二阶段审批模板）</h2>
+    <h2>审批配置数据校验</h2>
     <p class="text-muted">上传 UTF-8 编码的 CSV 文件，系统将自动识别条件列与审批人列，并按条件组进行规则校验。</p>
 </div>
 
@@ -26,10 +26,9 @@
                 <strong><span class="glyphicon glyphicon-cloud-upload"></span> 上传 CSV 文件进行校验</strong>
             </div>
             <div class="panel-body">
-                <form method="post" enctype="multipart/form-data" class="form-inline">
+                <form method="post" enctype="multipart/form-data">
                     @Html.AntiForgeryToken()
                     <div class="form-group">
-                        <label for="csvFile" class="sr-only">选择 CSV 文件</label>
                         <div class="input-group">
                             <span class="input-group-btn">
                                 <button type="button" class="btn btn-default" onclick="document.getElementById('csvFile').click()">
@@ -41,7 +40,7 @@
                         <input type="file" id="csvFile" name="csvFile" accept=".csv" style="display:none;"
                                onchange="document.getElementById('fileName').value = this.files[0] ? this.files[0].name : ''" />
                     </div>
-                    <button type="submit" class="btn btn-primary">
+                    <button type="submit" class="btn btn-primary" style="margin-top:10px;">
                         <span class="glyphicon glyphicon-ok"></span> 上传并校验
                     </button>
                 </form>
@@ -58,6 +57,12 @@
                    class="btn btn-info btn-block" style="margin-bottom:8px;">
                     <span class="glyphicon glyphicon-download-alt"></span> 下载其他审批矩阵模板
                 </a>
+                @if (Model.HasResult && Model.ValidationResult != null)
+                {
+                    <a href="@Url.Page("/Index", "Download")" class="btn btn-success btn-block" style="margin-bottom:8px;">
+                        <span class="glyphicon glyphicon-save"></span> 下载校验结果 CSV
+                    </a>
+                }
                 <form method="post" action="@Url.Page("/Index", "Clear")">
                     @Html.AntiForgeryToken()
                     <button type="submit" class="btn btn-default btn-block">
@@ -69,24 +74,67 @@
     </div>
 </div>
 
-@if (Model.HasResult && Model.ValidationResult != null)
+@if (Model.ShowColumnConfig)
+{
+    <div class="panel panel-warning">
+        <div class="panel-heading">
+            <strong><span class="glyphicon glyphicon-check"></span> 确认审批人起始列 — @Model.UploadedFileName</strong>
+        </div>
+        <div class="panel-body">
+            <form method="post" action="@Url.Page("/Index", "Validate")" class="form-inline">
+                @Html.AntiForgeryToken()
+                <div class="form-group">
+                    <label for="firstRoleCol" class="control-label">第一个审批人列：</label>
+                    <select id="firstRoleCol" name="firstRoleCol" class="form-control" onchange="updatePreview()">
+                        <option value="-1">— 无审批人列（仅查看数据） —</option>
+                        @for (int i = 0; i < Model.Headers.Length; i++)
+                        {
+                            var isFirstRole = Model.AutoDetectedRoleCols.Count > 0 && i == Model.AutoDetectedRoleCols.Min();
+                            <option value="@i" selected="@(isFirstRole ? "selected" : null)">@Model.Headers[i]</option>
+                        }
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg" style="margin-left:10px;">
+                    <span class="glyphicon glyphicon-play"></span> 开始校验
+                </button>
+                <div class="help-block" style="margin-top:8px;" id="colPreview">
+                    <span class="text-muted">—</span>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        var headers = [@Html.Raw(string.Join(",", Model.Headers.Select(h => "\"" + h.Replace("\"", "\\\"") + "\"")))];
+        function updatePreview() {
+            var idx = parseInt(document.getElementById('firstRoleCol').value);
+            var preview = document.getElementById('colPreview');
+            if (idx < 0) {
+                preview.innerHTML = '<span class="text-muted">未选择审批人列</span>';
+            } else {
+                var condCols = headers.slice(0, idx);
+                var roleCols = headers.slice(idx);
+                preview.innerHTML =
+                    '<span style="color:#999;">条件列（' + condCols.length + '）：</span><code>' + (condCols.length > 0 ? condCols.join(', ') : '(无)') + '</code>' +
+                    ' &nbsp;→&nbsp; <span style="color:#d9534f;">审批人列（' + roleCols.length + '）：</span><code>' + roleCols.join(', ') + '</code>';
+            }
+        }
+        updatePreview();
+    </script>
+}
+else if (Model.HasResult && Model.ValidationResult != null)
 {
     var vr = Model.ValidationResult;
     int anomalyCount = vr.Rows.Count(r => r.IsAnomaly);
     int normalCount = vr.Rows.Count - anomalyCount;
 
     <div class="row" style="margin-bottom:15px;">
-        <div class="col-md-8">
+        <div class="col-md-12">
             <div class="alert @(anomalyCount > 0 ? "alert-warning" : "alert-success")">
                 <strong>校验完成：</strong>共 @vr.Rows.Count 行数据，
                 <span style="color:@(anomalyCount > 0 ? "#a94442" : "#3c763d");">@anomalyCount 行异常</span>，
                 <span>@normalCount 行正常</span>
             </div>
-        </div>
-        <div class="col-md-4 text-right">
-            <a href="@Url.Page("/Index", "Download")" class="btn btn-success">
-                <span class="glyphicon glyphicon-download-alt"></span> 下载校验结果 CSV
-            </a>
         </div>
     </div>
 
@@ -127,15 +175,15 @@
                             </div>
                         </div>
                         <div id="@collapseId" class="panel-collapse collapse">
-                            <div class="panel-body">
-                                <table class="table table-condensed table-bordered" style="margin-bottom:0;">
+                            <div class="panel-body" style="overflow-x:auto;">
+                                <table class="table table-condensed table-bordered" style="margin-bottom:0;min-width:600px;">
                                     <thead>
                                         <tr class="active">
-                                            <th>CSV行号</th>
-                                            <th>异常原因</th>
+                                            <th style="min-width:50px;">行号</th>
+                                            <th style="min-width:120px;">异常原因</th>
                                             @foreach (var h in vr.Headers)
                                             {
-                                                <th>@h</th>
+                                                <th style="min-width:70px;@(Regex.IsMatch(h, @"^role\d*$", RegexOptions.IgnoreCase) ? "background:#fcf8e3;" : "")">@h</th>
                                             }
                                         </tr>
                                     </thead>
@@ -145,12 +193,10 @@
                                             var row = vr.Rows.First(r => (r.RowIndex + 2).ToString() == rowNum);
                                             <tr>
                                                 <td>@rowNum</td>
-                                                <td>
-                                                    @string.Join("；", row.Reasons)
-                                                </td>
+                                                <td>@string.Join("；", row.Reasons)</td>
                                                 @foreach (var cell in row.Cells)
                                                 {
-                                                    <td>@cell</td>
+                                                    <td style="white-space:nowrap;">@cell</td>
                                                 }
                                             </tr>
                                         }
@@ -164,7 +210,7 @@
         </div>
     }
 }
-else if (!Model.HasResult)
+else if (!Model.HasResult && !Model.ShowColumnConfig)
 {
     <div class="well">
         <h4>使用说明</h4>

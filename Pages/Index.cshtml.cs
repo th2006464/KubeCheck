@@ -11,24 +11,32 @@ public class IndexModel : PageModel
     public List<AnomalyGroup> AnomalyGroups { get; set; } = new();
     public bool HasResult { get; set; }
 
+    // 步骤1：列配置面板
+    public bool ShowColumnConfig { get; set; }
+    public string[] Headers { get; set; } = Array.Empty<string>();
+    public List<int> AutoDetectedRoleCols { get; set; } = new();
+    public string UploadedFileName { get; set; } = "";
+
     public void OnGet()
     {
         HasResult = false;
+        ShowColumnConfig = false;
     }
 
+    /// <summary>
+    /// 步骤1：上传 CSV → 展示列选择面板
+    /// </summary>
     public IActionResult OnPost(IFormFile csvFile)
     {
         if (csvFile == null || csvFile.Length == 0)
         {
             ModelState.AddModelError("csvFile", "请选择一个 CSV 文件上传");
-            HasResult = false;
             return Page();
         }
 
         if (!csvFile.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
         {
             ModelState.AddModelError("csvFile", "仅支持 .csv 格式文件");
-            HasResult = false;
             return Page();
         }
 
@@ -41,18 +49,66 @@ public class IndexModel : PageModel
         if (allRows.Count < 2)
         {
             ModelState.AddModelError("csvFile", "CSV 文件至少需要包含表头行和一行数据");
-            HasResult = false;
             return Page();
         }
 
-        ValidationResult = CsvValidator.Validate(allRows);
+        Headers = allRows[0];
+        UploadedFileName = csvFile.FileName;
+        var (_, autoRoleCols) = CsvValidator.DetectColumns(Headers);
+        AutoDetectedRoleCols = autoRoleCols;
+        ShowColumnConfig = true;
+
+        // 将原始 CSV 以 tab 分隔格式存入 TempData，供步骤2使用
+        var sb = new StringBuilder();
+        foreach (var row in allRows)
+        {
+            sb.AppendLine(string.Join("\t", row.Select(EscapeForStorage)));
+        }
+        TempData["RawCsv"] = sb.ToString();
+        TempData["FileName"] = csvFile.FileName;
+
+        return Page();
+    }
+
+    /// <summary>
+    /// 步骤2：用户选定第一个审批人列 → 推导全部审批人列 → 执行校验
+    /// </summary>
+    public IActionResult OnPostValidate(int firstRoleCol)
+    {
+        var raw = TempData["RawCsv"] as string;
+        var fileName = TempData["FileName"] as string ?? "result.csv";
+
+        if (string.IsNullOrEmpty(raw))
+        {
+            ModelState.AddModelError("", "上传数据已过期，请重新上传");
+            return Page();
+        }
+
+        // 还原 TempData 供下载使用
+        TempData["RawCsv"] = raw;
+        TempData["FileName"] = fileName;
+
+        var allRows = RestoreCsv(raw);
+        if (allRows.Count < 2)
+            return Page();
+
+        // 从起始列推导全部审批人列（起始列及其右侧所有列）
+        var roleColList = new List<int>();
+        if (firstRoleCol >= 0)
+        {
+            for (int i = firstRoleCol; i < allRows[0].Length; i++)
+                roleColList.Add(i);
+        }
+
+        ValidationResult = CsvValidator.Validate(allRows, roleColList);
         AnomalyGroups = CsvValidator.BuildAnomalyGroups(ValidationResult);
         HasResult = true;
+        ShowColumnConfig = false;
 
-        // 生成带注解列的导出 CSV，存入 TempData 供下载
+        // 生成导出 CSV
         var exportCsv = GenerateExportCsv(ValidationResult);
         TempData["ExportCsv"] = exportCsv;
-        TempData["ExportFileName"] = Path.GetFileNameWithoutExtension(csvFile.FileName) + "_checked.csv";
+        TempData["ExportFileName"] = Path.GetFileNameWithoutExtension(fileName) + "_checked.csv";
 
         return Page();
     }
@@ -71,7 +127,6 @@ public class IndexModel : PageModel
         if (string.IsNullOrEmpty(csv))
             return RedirectToPage("/Index");
 
-        // 重存 TempData，因为 GET 请求会消费 TempData
         TempData["ExportCsv"] = csv;
         TempData["ExportFileName"] = fileName;
 
@@ -79,9 +134,32 @@ public class IndexModel : PageModel
         return File(bytes, "text/csv; charset=utf-8", fileName);
     }
 
-    /// <summary>
-    /// 简易 CSV 解析：支持双引号转义字段
-    /// </summary>
+    // ===== 工具方法 =====
+
+    private string EscapeForStorage(string field)
+    {
+        return field.Replace("\\", "\\\\").Replace("\t", "\\t").Replace("\n", "\\n").Replace("\r", "\\r");
+    }
+
+    private string UnescapeFromStorage(string field)
+    {
+        return field.Replace("\\r", "\r").Replace("\\n", "\n").Replace("\\t", "\t").Replace("\\\\", "\\");
+    }
+
+    private List<string[]> RestoreCsv(string raw)
+    {
+        var rows = new List<string[]>();
+        var lines = raw.Split('\n');
+        foreach (var line in lines)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+                continue;
+            var fields = line.TrimEnd('\r').Split('\t');
+            rows.Add(fields.Select(UnescapeFromStorage).ToArray());
+        }
+        return rows;
+    }
+
     private List<string[]> ParseCsv(StreamReader reader)
     {
         var rows = new List<string[]>();
@@ -89,7 +167,7 @@ public class IndexModel : PageModel
         while ((line = reader.ReadLine()) != null)
         {
             if (string.IsNullOrWhiteSpace(line))
-                continue; // 跳过空行
+                continue;
 
             var fields = ParseCsvLine(line);
             rows.Add(fields.ToArray());
@@ -146,14 +224,10 @@ public class IndexModel : PageModel
         return fields;
     }
 
-    /// <summary>
-    /// 生成导出 CSV：首列「存在异常值」+ 原始所有列
-    /// </summary>
     private string GenerateExportCsv(ValidationResult result)
     {
         var sb = new StringBuilder();
 
-        // 头行
         sb.Append("存在异常值");
         foreach (var h in result.Headers)
         {
@@ -162,7 +236,6 @@ public class IndexModel : PageModel
         }
         sb.AppendLine();
 
-        // 数据行
         foreach (var row in result.Rows)
         {
             sb.Append(row.IsAnomaly ? "是" : "否");
