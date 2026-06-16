@@ -1,0 +1,116 @@
+@page
+@model SearchModel
+@{
+    ViewData["Title"] = "信息查询";
+}
+
+<div class="page-header">
+    <h2>信息查询</h2>
+    <p class="text-muted">
+        搜索范围：员工信息（@(SearchIndex.Count)人）、费用承担部门、项目代码等共 10 个数据表
+    </p>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="panel panel-primary">
+            <div class="panel-heading">
+                <strong><span class="glyphicon glyphicon-search"></span> 关键词搜索</strong>
+            </div>
+            <div class="panel-body">
+                <form method="post" class="form-inline">
+                    @Html.AntiForgeryToken()
+                    <div class="form-group">
+                        <div class="input-group">
+                            <input type="text" name="keyword" class="form-control input-lg" style="width:400px;"
+                                   placeholder="输入名称、编码或邮箱..." value="@Model.Keyword" autofocus />
+                            <span class="input-group-btn">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <span class="glyphicon glyphicon-search"></span> 搜索
+                                </button>
+                            </span>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="panel panel-info">
+            <div class="panel-heading"><strong><span class="glyphicon glyphicon-info-sign"></span> 搜索提示</strong></div>
+            <div class="panel-body" style="font-size:13px;">
+                <p class="text-muted" style="margin:0 0 8px 0;">支持搜索：</p>
+                <ul style="margin:0;padding-left:18px;">
+                    <li><strong>员工</strong>：姓名、工号、邮箱</li>
+                    <li><strong>部门</strong>：名称、编码</li>
+                    <li><strong>项目</strong>：ItemCode、QCF/CAPEX 代码</li>
+                </ul>
+                <hr style="margin:10px 0;" />
+                <p class="text-muted" style="margin:0 0 6px 0;">更新数据：新 CSV 放入 <code>search\</code> 文件夹后</p>
+                <form method="post" asp-page-handler="Reload">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-warning btn-block btn-sm">
+                        <span class="glyphicon glyphicon-refresh"></span> 重新加载索引
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (Model.Searched)
+{
+    var groups = Model.Results.GroupBy(r => r.TableName).ToList();
+
+    <div style="margin-bottom:10px;">
+        <strong>搜索"@Model.Keyword"：</strong>
+        <span class="badge">@Model.Results.Count 条结果</span>
+        <span class="text-muted">（@groups.Count 个分类）</span>
+    </div>
+
+    @if (Model.Results.Count == 0)
+    {
+        <div class="alert alert-warning text-center">未找到匹配结果</div>
+    }
+    else
+    {
+        foreach (var group in groups)
+        {
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <strong>@group.Key</strong>
+                    <span class="badge pull-right">@group.Count()</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover table-condensed" style="margin-bottom:0;">
+                        <thead>
+                            <tr class="active">
+                                <th style="width:85px;">序号</th>
+                                <th style="min-width:200px;">名称</th>
+                                <th style="min-width:130px;">汇报关系</th>
+                                <th>审批人</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var entry in group)
+                            {
+                                <tr>
+                                    <td><code>@entry.Code</code></td>
+                                    <td><small>@entry.DisplayName</small></td>
+                                    <td style="white-space:nowrap;font-size:12px;">@Html.Raw(entry.Relation)</td>
+                                    <td style="font-size:12px;">@entry.Detail</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    }
+}
+else if (!SearchIndex.IsLoaded)
+{
+    <div class="alert alert-warning">
+        索引数据未加载，请检查 <code>search\</code> 目录下的数据文件。
+    </div>
+}

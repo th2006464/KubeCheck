@@ -1,0 +1,142 @@
+@page
+@model A2ViewerModel
+@{
+    ViewData["Title"] = "A2可视化";
+}
+
+<style>
+    .container { width: 98% !important; max-width: none !important; }
+    #toc-panel { position: sticky; top: 10px; max-height: 85vh; overflow-y: auto; }
+    #toc-panel .btn-link { padding: 2px 0; font-size: 12px; text-align: left; white-space: normal; }
+    .a2-section { margin-bottom: 15px; }
+    .a2-section .table-responsive { overflow-x: auto; }
+    .a2-section .table { margin-bottom: 0; font-size: 12px; width: auto; }
+    .a2-section .table th { font-size: 11px; white-space: nowrap; }
+    .content-full { width: 100% !important; padding: 0 15px !important; }
+</style>
+
+<div class="page-header">
+    <h2>A2 审批权限矩阵</h2>
+    <form class="form-inline" style="margin-bottom:10px;">
+        <select id="fileSelect" class="form-control" onchange="switchFile(this.value)">
+            @foreach (var f in Model.A2Files)
+            {
+                var selected = f == Model.FileName ? "selected" : "";
+                <option value="@f" selected="@selected">@f</option>
+            }
+        </select>
+    </form>
+</div>
+
+@if (Model.SheetNames.Count > 0)
+{
+    <div class="row">
+        <div class="col-md-3 col-lg-2" style="padding-right:5px;">
+            <div class="panel panel-default" id="toc-panel">
+                <div class="panel-heading" style="padding:6px 10px;">
+                    <small><strong>目录</strong></small>
+                </div>
+                <div style="padding:4px 10px;">
+                    @for (int idx = 0; idx < Model.SheetNames.Count; idx++)
+                    {
+                        var sheet = Model.SheetNames[idx];
+                        var sid = "s" + idx;
+                        <a href="#@sid" class="btn btn-link btn-block toc-link"
+                           data-section="@sid" data-index="@idx" onclick="loadSection(this)" style="text-decoration:none;">
+                            @sheet
+                        </a>
+                    }
+                    <button id="tocToggle" class="btn btn-xs btn-default btn-block" style="margin-top:6px;" onclick="toggleToc()">收起目录</button>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-9 col-lg-10 content-area" style="padding-left:5px;">
+            <div id="section-container">
+                @* 按需加载 *@
+                @for (int idx = 0; idx < Model.SheetNames.Count; idx++)
+                {
+                    var sid = "s" + idx;
+                    <div class="a2-section" id="@sid" style="display:none;" data-loaded="false">
+                        <div class="text-center text-muted" style="padding:40px;">
+                            <span class="glyphicon glyphicon-refresh spinning"></span> 加载中…
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="alert alert-warning">
+        未找到 A2 Markdown 文件，请确认 <code>A2\</code> 目录。
+    </div>
+}
+
+@section Scripts {
+    <script>
+        var allSections = {};
+        // 预解析：后端把每个section的HTML放在JS变量中
+        @foreach (var sheet in Model.SheetNames)
+        {
+            var sid = sheet.Replace(" ", "_").Replace(".", "_").Replace("/", "_");
+            <text>
+            allSections['@sid'] = { loaded: false, html: null };
+            </text>
+        }
+
+        function loadSection(el) {
+            var sid = el.getAttribute('data-section');
+            var idx = el.getAttribute('data-index');
+            var div = document.getElementById(sid);
+            if (!div) return;
+
+            document.querySelectorAll('.toc-link').forEach(function(a) { a.style.fontWeight = 'normal'; });
+            el.style.fontWeight = 'bold';
+
+            if (div.getAttribute('data-loaded') === 'true') {
+                var isVisible = div.style.display !== 'none';
+                document.querySelectorAll('.a2-section').forEach(function(s) { s.style.display = 'none'; });
+                if (isVisible) { div.style.display = 'none'; el.style.fontWeight = 'normal'; }
+                else { div.style.display = 'block'; }
+                return;
+            }
+
+            fetch('/A2Viewer?handler=Section&index=' + idx + '&file=' + encodeURIComponent(document.getElementById('fileSelect').value))
+                .then(function(r) { return r.text(); })
+                .then(function(html) {
+                    div.innerHTML = html;
+                    div.setAttribute('data-loaded', 'true');
+                    div.style.display = 'block';
+                });
+
+            document.querySelectorAll('.a2-section').forEach(function(s) {
+                if (s.id !== sid) s.style.display = 'none';
+            });
+        }
+
+        // 默认加载第一个
+        var firstLink = document.querySelector('.toc-link');
+        if (firstLink) loadSection(firstLink);
+
+        function switchFile(name) {
+            location.href = '/A2Viewer?file=' + encodeURIComponent(name);
+        }
+
+        function toggleToc() {
+            var tocCol = document.querySelector('#toc-panel').parentElement;
+            var contentCol = document.querySelector('.content-area');
+            var btn = document.getElementById('tocToggle');
+            if (tocCol.style.display === 'none') {
+                tocCol.style.display = '';
+                tocCol.className = 'col-md-3 col-lg-2';
+                contentCol.className = 'col-md-9 col-lg-10 content-area';
+                btn.textContent = '收起目录';
+            } else {
+                tocCol.style.display = 'none';
+                contentCol.className = 'col-md-12 content-area content-full';
+                btn.textContent = '展开目录';
+            }
+        }
+    </script>
+}

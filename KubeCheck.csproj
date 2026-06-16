@@ -7,4 +7,12 @@
     <DefaultItemExcludes>$(DefaultItemExcludes);release\**</DefaultItemExcludes>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Content Include="search\**\*" CopyToPublishDirectory="Always" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ClosedXML" Version="0.102.3" />
+  </ItemGroup>
+
 </Project>

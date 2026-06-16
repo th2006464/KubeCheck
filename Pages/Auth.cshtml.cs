@@ -1,10 +1,10 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Mail;
-using MatricesCheck.Models;
+using KubeCheck.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
-namespace MatricesCheck.Pages;
+namespace KubeCheck.Pages;
 
 public class AuthModel : PageModel
 {
@@ -21,7 +21,7 @@ public class AuthModel : PageModel
     public void OnGet()
     {
         // 已登录则跳转到首页
-        if (Request.Cookies.ContainsKey("MatricesCheckAuth"))
+        if (Request.Cookies.ContainsKey("KubeCheckAuth"))
         {
             Response.Redirect("/");
         }
@@ -39,13 +39,13 @@ public class AuthModel : PageModel
         if (AuthCodeStore.Validate(code))
         {
             // 设置认证 Cookie，有效期 7 天
-            Response.Cookies.Append("MatricesCheckAuth", "1", new CookieOptions
+            Response.Cookies.Append("KubeCheckAuth", "1", new CookieOptions
             {
                 Expires = DateTime.Now.AddDays(7),
                 HttpOnly = true,
                 SameSite = SameSiteMode.Strict
             });
-            return RedirectToPage("/Index");
+            return RedirectToPage("/Search");
         }
 
         Message = "授权码无效或已过期，请重新申请";
@@ -76,7 +76,7 @@ public class AuthModel : PageModel
                     };
                     using var msg = new MailMessage(from!, to!)
                     {
-                        Subject = "[MatricesCheck] 审批配置校验系统 - 一次性授权码",
+                        Subject = "[KubeCheck] 审批配置校验系统 - 一次性授权码",
                         Body = $"您的授权码为：{code}\n\n" +
                                $"有效期 30 分钟，请在登录页面输入。\n" +
                                $"如非本人操作，请忽略此邮件。\n\n" +

@@ -1,6 +1,6 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 
-namespace MatricesCheck.Models;
+namespace KubeCheck.Models;
 
 /// <summary>
 /// 一次性授权码存储（服务端内存），生产环境重启后失效

@@ -1,4 +1,4 @@
-# MatricesCheck — 审批配置数据校验系统
+﻿# KubeCheck — 审批配置数据校验系统
 
 基于 .NET 8 + ASP.NET Core Razor Pages 的 CSV 审批配置校验工具，自动识别条件列与审批人列，按条件组执行规则校验，并以 Bootstrap 3 页面展示异常结果。
 
@@ -26,7 +26,7 @@
 ## 项目结构
 
 ```
-MatricesCheck/
+KubeCheck/
 ├── Pages/
 │   ├── Index.cshtml              # 主页面
 │   ├── Index.cshtml.cs           # PageModel（上传、解析、校验）
@@ -39,7 +39,7 @@ MatricesCheck/
 ├── wwwroot/
 │   └── logo.png                  # 页头 Logo（需自行放置）
 ├── Program.cs                    # 应用入口 + Session 配置
-├── MatricesCheck.csproj          # 项目文件
+├── KubeCheck.csproj          # 项目文件
 ├── appsettings.json              # 生产配置
 └── .gitignore
 ```
@@ -64,7 +64,7 @@ MatricesCheck/
 ```bash
 # 1. 克隆项目
 git clone <repo-url>
-cd MatricesCheck
+cd KubeCheck
 
 # 2. 还原依赖 + 运行
 dotnet run --urls "http://localhost:5000"
@@ -98,7 +98,7 @@ dotnet publish -c Release -o release
 将 `release\` 目录的全部内容复制到服务器的目标文件夹，例如：
 
 ```
-D:\WebApps\MatricesCheck\
+D:\WebApps\KubeCheck\
 ```
 
 ### 3. IIS 站点配置
@@ -109,8 +109,8 @@ D:\WebApps\MatricesCheck\
 
    | 设置项 | 值 |
    |--------|-----|
-   | 网站名称 | `MatricesCheck` |
-   | 物理路径 | `D:\WebApps\MatricesCheck` |
+   | 网站名称 | `KubeCheck` |
+   | 物理路径 | `D:\WebApps\KubeCheck` |
    | 绑定类型 | `https` |
    | 主机名 | `www.garchina.com`（按实际域名填写） |
    | SSL 证书 | 选择对应的 HTTPS 证书 |
@@ -122,11 +122,11 @@ D:\WebApps\MatricesCheck\
 
 ### 4. 子路径部署（可选）
 
-如需部署到子路径（如 `/MatricesCheck`），在 IIS 中：
+如需部署到子路径（如 `/KubeCheck`），在 IIS 中：
 
 1. 右键目标网站 →「添加应用程序」
-2. 别名：`MatricesCheck`
-3. 物理路径：`D:\WebApps\MatricesCheck`
+2. 别名：`KubeCheck`
+3. 物理路径：`D:\WebApps\KubeCheck`
 4. 应用程序池选择对应应用池
 
 项目中的 `@Url.Content("~/...")` 和 `@Url.Page(...)` 会自动适配子路径。
@@ -136,14 +136,14 @@ D:\WebApps\MatricesCheck\
 确保 IIS 应用池标识对以下目录有**读取+执行**权限：
 
 ```
-D:\WebApps\MatricesCheck\
+D:\WebApps\KubeCheck\
 ```
 
 如需写入日志，额外对 `logs\` 目录赋予**写入**权限。
 
 ### 6. 验证部署
 
-浏览器访问 `https://<域名>/MatricesCheck`（或配置的路径），看到上传页面即部署成功。
+浏览器访问 `https://<域名>/KubeCheck`（或配置的路径），看到上传页面即部署成功。
 
 ---
 

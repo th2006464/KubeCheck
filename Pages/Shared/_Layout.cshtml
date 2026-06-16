@@ -26,10 +26,16 @@
                         <a href="https://oa365.sinarmas-agri.com/" target="_blank">Kube 365</a>
                     </li>
                     <li class="@(ViewData["Title"]?.ToString() == "Kube 365系统审批配置数据校验" ? "active" : "")">
-                        <a href="@Url.Content("~/")">审批配置数据冲突值检测</a>
+                        <a href="@Url.Page("/ConflictCheck")">审批配置数据冲突值检测</a>
                     </li>
                     <li class="@(ViewData["Title"]?.ToString() == "审批人一致性比对" ? "active" : "")">
                         <a href="@Url.Page("/Compare")">审批人一致性比对</a>
+                    </li>
+                    <li class="@(ViewData["Title"]?.ToString() == "信息查询" ? "active" : "")">
+                        <a href="@Url.Page("/Search")">信息查询</a>
+                    </li>
+                    <li class="@(ViewData["Title"]?.ToString() == "A2可视化" ? "active" : "")">
+                        <a href="@Url.Page("/A2Viewer")">A2可视化</a>
                     </li>
                 </ul>
             </div>

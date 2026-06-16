@@ -1,6 +1,6 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 
-namespace MatricesCheck.Models;
+namespace KubeCheck.Models;
 
 /// <summary>
 /// 单行校验结果
@@ -96,14 +96,14 @@ public static class CsvValidator
     }
 
     /// <summary>
-    /// 主校验入口（用户指定条件列和审批人列）
+    /// 主校验入口（用户指定条件列和审批人列，countsOnly=仅检查审批人数差异）
     /// </summary>
-    public static ValidationResult Validate(List<string[]> allRows, List<int> conditionCols, List<int> roleCols)
+    public static ValidationResult Validate(List<string[]> allRows, List<int> conditionCols, List<int> roleCols, bool countsOnly = false)
     {
-        return ValidateCore(allRows, conditionCols, roleCols);
+        return ValidateCore(allRows, conditionCols, roleCols, countsOnly);
     }
 
-    private static ValidationResult ValidateCore(List<string[]> allRows, List<int> conditionCols, List<int> roleCols)
+    private static ValidationResult ValidateCore(List<string[]> allRows, List<int> conditionCols, List<int> roleCols, bool countsOnly = false)
     {
         if (allRows.Count < 2)
             return new ValidationResult();
@@ -153,8 +153,11 @@ public static class CsvValidator
                 continue;
 
             CheckRule1(rowResults, indices, roleCols);
-            CheckRule2(rowResults, indices, roleCols);
-            CheckRule3(rowResults, indices, roleCols);
+            if (!countsOnly)
+            {
+                CheckRule2(rowResults, indices, roleCols);
+                CheckRule3(rowResults, indices, roleCols);
+            }
         }
 
         result.Rows = rowResults.ToList();

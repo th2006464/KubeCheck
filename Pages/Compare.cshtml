@@ -94,7 +94,7 @@
                                 <div class="col-sm-4 col-md-3">
                                     <div class="checkbox" style="margin:3px 0;">
                                         <label>
-                                            <input type="checkbox" name="conditionCols" value="@i" checked
+                                            <input type="checkbox" name="conditionCols" value="@i"
                                                    onchange="updateComparePreview()" class="cond-cb" />
                                             @Model.Headers[i]
                                         </label>
@@ -175,9 +175,12 @@ else if (Model.HasResult && Model.ValidationResult != null)
     }
     else
     {
-        <div class="panel panel-danger">
+        <div class="panel panel-danger" id="anomalyGroups">
             <div class="panel-heading">
-                <strong>不一致条件组：共 @Model.AnomalyGroups.Count 组</strong>
+                <strong>不一致条件组：共 <span id="anomalyGroupCount">@Model.AnomalyGroups.Count</span> 组</strong>
+            </div>
+            <div id="allConfirmed" class="alert alert-success text-center" style="display:none;margin:10px;">
+                <strong>全部确认完毕，无剩余异常</strong>
             </div>
             <div class="panel-body" style="padding:0;">
                 @foreach (var group in Model.AnomalyGroups)
@@ -194,6 +197,9 @@ else if (Model.HasResult && Model.ValidationResult != null)
                                     <a data-toggle="collapse" href="#@collapseId" class="btn btn-xs btn-link">
                                         展开/收起
                                     </a>
+                                    <button type="button" class="btn btn-xs btn-success" onclick="confirmGroup(this)" title="确认无误，移除此异常">
+                                        <span class="glyphicon glyphicon-ok"></span> 确认
+                                    </button>
                                 </div>
                             </div>
                             <div style="margin-top:6px;">
@@ -237,6 +243,22 @@ else if (Model.HasResult && Model.ValidationResult != null)
                 }
             </div>
         </div>
+
+        <script>
+            function confirmGroup(btn) {
+                var card = btn.closest('.panel.panel-default');
+                card.style.display = 'none';
+                var remaining = document.querySelectorAll('#anomalyGroups .panel.panel-default').length;
+                var visible = 0;
+                document.querySelectorAll('#anomalyGroups .panel.panel-default').forEach(function(p) {
+                    if (p.style.display !== 'none') visible++;
+                });
+                document.getElementById('anomalyGroupCount').textContent = visible;
+                if (visible === 0) {
+                    document.getElementById('allConfirmed').style.display = '';
+                }
+            }
+        </script>
     }
 }
 else if (!Model.HasResult && !Model.ShowColumnConfig)

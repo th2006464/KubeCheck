@@ -1,5 +1,5 @@
-@page
-@model IndexModel
+@page "/ConflictCheck"
+@model ConflictCheckModel
 @{
     ViewData["Title"] = "Kube 365系统审批配置数据校验";
 }
@@ -59,11 +59,11 @@
                 </a>
                 @if (Model.HasResult && Model.ValidationResult != null)
                 {
-                    <a href="@Url.Page("/Index", "Download")" class="btn btn-success btn-block" style="margin-bottom:8px;">
+                    <a href="@Url.Page("/ConflictCheck", "Download")" class="btn btn-success btn-block" style="margin-bottom:8px;">
                         <span class="glyphicon glyphicon-save"></span> 下载校验结果 CSV
                     </a>
                 }
-                <form method="post" action="@Url.Page("/Index", "Clear")">
+                <form method="post" action="@Url.Page("/ConflictCheck", "Clear")">
                     @Html.AntiForgeryToken()
                     <button type="submit" class="btn btn-default btn-block">
                         <span class="glyphicon glyphicon-refresh"></span> 清空当前校验结果
@@ -81,7 +81,7 @@
             <strong><span class="glyphicon glyphicon-check"></span> 确认审批人起始列 — @Model.UploadedFileName</strong>
         </div>
         <div class="panel-body">
-            <form method="post" action="@Url.Page("/Index", "Validate")" class="form-inline">
+            <form method="post" action="@Url.Page("/ConflictCheck", "Validate")" class="form-inline">
                 @Html.AntiForgeryToken()
                 <div class="form-group">
                     <label for="firstRoleCol" class="control-label">第一个审批人列：</label>

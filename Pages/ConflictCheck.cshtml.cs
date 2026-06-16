@@ -5,7 +5,7 @@ using KubeCheck.Models;
 
 namespace KubeCheck.Pages;
 
-public class CompareModel : PageModel
+public class ConflictCheckModel : PageModel
 {
     public ValidationResult? ValidationResult { get; set; }
     public List<AnomalyGroup> AnomalyGroups { get; set; } = new();
@@ -63,6 +63,7 @@ public class CompareModel : PageModel
         ShowColumnConfig = true;
         HasResult = false;
 
+        // 存原始数据供 OnPostValidate 使用
         var sb = new StringBuilder();
         foreach (var row in allRows) sb.AppendLine(string.Join("\t", row.Select(EscapeForStorage)));
         TempData["RawCsv"] = sb.ToString();
@@ -71,7 +72,7 @@ public class CompareModel : PageModel
         return Page();
     }
 
-    public IActionResult OnPostValidate(int[] conditionCols, int firstRoleCol)
+    public IActionResult OnPostValidate(int firstRoleCol)
     {
         var auth = CheckAuth();
         if (auth != null!) return auth;
@@ -88,13 +89,12 @@ public class CompareModel : PageModel
         var allRows = RestoreCsv(raw);
         if (allRows.Count < 2) return Page();
 
-        var condColList = conditionCols?.ToList() ?? new List<int>();
         var roleColList = new List<int>();
         if (firstRoleCol >= 0)
             for (int i = firstRoleCol; i < allRows[0].Length; i++)
                 roleColList.Add(i);
 
-        ValidationResult = CsvValidator.Validate(allRows, condColList, roleColList, countsOnly: true);
+        ValidationResult = CsvValidator.Validate(allRows, roleColList);
         AnomalyGroups = CsvValidator.BuildAnomalyGroups(ValidationResult);
         HasResult = true;
         ShowColumnConfig = false;
@@ -109,14 +109,14 @@ public class CompareModel : PageModel
     public IActionResult OnPostClear()
     {
         TempData.Clear();
-        return RedirectToPage("/Compare");
+        return RedirectToPage();
     }
 
     public IActionResult OnGetDownload()
     {
         var csv = TempData["ExportCsv"] as string;
         var fileName = TempData["ExportFileName"] as string ?? "result.csv";
-        if (string.IsNullOrEmpty(csv)) return RedirectToPage("/Compare");
+        if (string.IsNullOrEmpty(csv)) return RedirectToPage();
         TempData["ExportCsv"] = csv;
         TempData["ExportFileName"] = fileName;
         return File(Encoding.UTF8.GetBytes(csv), "text/csv; charset=utf-8", fileName);
